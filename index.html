@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Trade Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root {
+  --bg:#f7f7f5;--surface:#fff;--surface2:#f2f1ef;
+  --border:rgba(0,0,0,.08);--border2:rgba(0,0,0,.14);
+  --text:#1a1a18;--text2:#5c5c58;--text3:#9a9a94;
+  --green-bg:#e8f4e8;--green-text:#2a6a2a;
+  --red-bg:#fce8e8;--red-text:#8a2020;
+  --mono:'Courier New',monospace;--radius:10px;--radius-sm:6px;
+  --tg-header-height:0px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);font-size:13px;line-height:1.5;min-height:100vh}
+
+/* header */
+header{background:var(--surface);border-bottom:.5px solid var(--border2);padding:0 max(16px,env(safe-area-inset-left));display:flex;align-items:center;justify-content:space-between;height:48px;position:sticky;top:0;z-index:100}
+.header-left{display:flex;align-items:center;gap:8px}
+.logo-mark{width:24px;height:24px;background:var(--text);border-radius:5px;display:flex;align-items:center;justify-content:center}
+.logo-mark svg{width:12px;height:12px;fill:none;stroke:#fff;stroke-width:1.8}
+.header-title{font-size:12px;font-weight:500;color:var(--text);white-space:nowrap}
+.header-year{font-size:10px;color:var(--text3);font-family:var(--mono);background:var(--surface2);padding:2px 6px;border-radius:4px}
+.header-right{display:flex;align-items:center;gap:6px}
+.btn-hdr{display:flex;align-items:center;justify-content:center;width:38px;height:38px;background:var(--surface2);border:.5px solid var(--border2);border-radius:var(--radius-sm);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.btn-hdr svg{width:18px;height:18px;stroke:var(--text2);fill:none;stroke-width:1.8}
+.btn-hdr:active{background:#e4e4e0}
+
+/* tab bar */
+.tab-bar{background:var(--surface);border-bottom:.5px solid var(--border2);display:flex;position:sticky;top:48px;z-index:99;padding:0 14px}
+.tab-btn{flex:1;font-size:13px;font-weight:500;color:var(--text3);background:none;border:none;border-bottom:2px solid transparent;padding:10px 0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.tab-btn.active{color:var(--text);border-bottom-color:var(--text)}
+
+/* layout */
+main{padding:14px 14px max(48px,calc(env(safe-area-inset-bottom) + 20px))}
+.page{display:none}.page.active{display:block}
+.import-panel{background:var(--surface);border:.5px solid var(--border2);border-radius:var(--radius);padding:16px;margin-bottom:16px}
+.import-panel.hidden{display:none}
+.drop-zone{border:1.5px dashed var(--border2);border-radius:var(--radius-sm);padding:24px 16px;text-align:center;cursor:pointer}
+.drop-zone.drag-over{background:var(--surface2)}
+.drop-icon{width:32px;height:32px;background:var(--surface2);border-radius:7px;display:flex;align-items:center;justify-content:center;margin:0 auto 8px}
+.drop-icon svg{width:16px;height:16px;stroke:var(--text2);fill:none;stroke-width:1.8}
+.drop-title{font-size:13px;font-weight:500;color:var(--text);margin-bottom:4px}
+.drop-sub{font-size:11px;color:var(--text3)}
+.drop-sub code{font-family:var(--mono);background:var(--surface2);padding:1px 4px;border-radius:3px;font-size:10px}
+.status-msg{margin-top:8px;font-size:12px}
+.status-ok{color:var(--green-text)}.status-err{color:var(--red-text)}
+#file-input{display:none}
+
+/* sections */
+.section-eyebrow{font-size:9px;font-weight:600;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}
+.section{margin-bottom:14px}
+.grid-2{display:grid;grid-template-columns:1fr;gap:10px}
+.card{background:var(--surface);border:.5px solid var(--border2);border-radius:var(--radius);padding:12px 13px}
+.metric-card{background:var(--surface2);border-radius:var(--radius-sm);padding:10px 12px}
+.metric-lbl{font-size:9px;color:var(--text3);font-weight:500;letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px}
+.metric-val{font-size:19px;font-weight:500;color:var(--text);letter-spacing:-.03em;line-height:1.1}
+.metric-sub{font-size:10px;color:var(--text3);margin-top:3px;font-family:var(--mono)}
+.divider{height:.5px;background:var(--border);margin:12px 0}
+.changes-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.change-col{padding:0}
+.change-col-title{font-size:9px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.change-row{display:flex;justify-content:space-between;align-items:center;padding:3px 0}
+.change-lbl{font-size:10px;color:var(--text3)}
+
+/* badges */
+.badge{display:inline-block;font-size:9px;font-weight:500;font-family:var(--mono);padding:2px 6px;border-radius:99px}
+.bg{background:var(--green-bg);color:var(--green-text)}
+.br{background:var(--red-bg);color:var(--red-text)}
+.bn{background:var(--surface2);color:var(--text2)}
+
+/* tables */
+.card-title{font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;display:flex;align-items:center;gap:5px}
+.card-title svg{width:12px;height:12px;stroke:var(--text3);fill:none;stroke-width:2}
+.tbl-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tbl-head{display:grid;gap:4px;font-size:9px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;border-bottom:.5px solid var(--border2);padding-bottom:5px;margin-bottom:3px;min-width:280px}
+.tbl-row{display:grid;gap:4px;font-size:10px;color:var(--text);padding:5px 0;border-bottom:.5px solid var(--border);align-items:center;min-width:280px}
+.tbl-row:last-child{border-bottom:none}
+.rank{font-size:9px;color:var(--text3);font-family:var(--mono);text-align:center}
+.country-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.val-cell{text-align:right;font-family:var(--mono);font-size:10px}
+.yoy-cell{text-align:right}
+
+/* dashboard */
+#dashboard{display:none;flex-direction:column;gap:14px}
+#dashboard.visible{display:flex}
+.empty-state{text-align:center;padding:48px 16px;color:var(--text3)}
+.empty-icon{width:44px;height:44px;background:var(--surface2);border-radius:11px;display:flex;align-items:center;justify-content:center;margin:0 auto 10px}
+.empty-icon svg{width:22px;height:22px;stroke:var(--text3);fill:none;stroke-width:1.5}
+.empty-title{font-size:14px;font-weight:500;color:var(--text2);margin-bottom:4px}
+.empty-sub{font-size:12px}
+
+/* search trigger */
+.search-trigger{display:flex;align-items:center;gap:8px;width:100%;padding:11px 12px;background:var(--surface2);border:.5px solid var(--border2);border-radius:var(--radius-sm);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.search-trigger svg{width:14px;height:14px;stroke:var(--text3);fill:none;stroke-width:2;flex-shrink:0}
+.search-trigger-text{font-size:14px;color:var(--text3)}
+.search-trigger-value{font-size:14px;color:var(--text);font-weight:500}
+
+/* search overlay */
+.search-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:300;background:var(--surface)}
+.search-overlay.open{display:flex;flex-direction:column}
+.search-header{display:flex;align-items:center;gap:10px;padding:12px 14px;padding-top:max(12px,env(safe-area-inset-top));border-bottom:.5px solid var(--border2);flex-shrink:0}
+.search-field{flex:1;padding:9px 12px;font-size:16px;font-family:-apple-system,sans-serif;border:.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);outline:none}
+.search-field:focus{background:var(--surface);border-color:var(--text3)}
+.search-cancel-btn{font-size:15px;font-weight:500;color:#007AFF;background:none;border:none;cursor:pointer;padding:6px 0;flex-shrink:0;-webkit-tap-highlight-color:transparent}
+.search-results{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.search-result-item{padding:14px 16px;font-size:15px;color:var(--text);border-bottom:.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.search-result-item:active{background:var(--surface2)}
+.search-result-sub{font-size:12px;color:var(--text3);font-family:var(--mono)}
+.search-empty{padding:32px 16px;text-align:center;font-size:14px;color:var(--text3)}
+
+/* lookup result */
+.lookup-result{margin-top:14px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.lookup-country-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.lookup-flag{font-size:10px;font-family:var(--mono);background:var(--surface2);padding:3px 6px;border-radius:4px;color:var(--text3)}
+.lookup-country-name{font-size:15px;font-weight:500;color:var(--text)}
+.lookup-country-ru{font-size:11px;color:var(--text3)}
+.lookup-tbl-head{display:grid;gap:4px;font-size:9px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;border-bottom:.5px solid var(--border2);padding-bottom:5px;margin-bottom:3px}
+.lookup-tbl-row{display:grid;gap:4px;font-size:10px;padding:5px 0;border-bottom:.5px solid var(--border);align-items:center;color:var(--text)}
+.lookup-tbl-row:last-child{border-bottom:none}
+.lookup-empty{font-size:12px;color:var(--text3);padding:10px 0}
+
+/* p2 */
+#p2-dashboard{display:none;flex-direction:column;gap:14px}
+.prod-header{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.prod-code{font-size:10px;font-family:var(--mono);background:var(--surface2);padding:3px 6px;border-radius:4px;color:var(--text3)}
+.bar-row{display:grid;grid-template-columns:1fr;gap:3px;padding:7px 0;border-bottom:.5px solid var(--border)}
+.bar-row:last-child{border-bottom:none}
+.bar-row-top{display:flex;justify-content:space-between;align-items:flex-start;gap:6px}
+.bar-label{font-size:11px;color:var(--text);white-space:normal;word-break:break-word;flex:1}
+.bar-meta{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.bar-track{height:8px;background:var(--surface2);border-radius:4px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;background:#7BB8D4;transition:width .4s ease}
+.bar-val{font-size:10px;font-family:var(--mono);color:var(--text2);white-space:nowrap}
+.chart-title{font-size:9px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="logo-mark">
+      <svg viewBox="0 0 16 16"><polyline points="2,12 6,7 10,9 14,4"/></svg>
+    </div>
+    <span class="header-title">Trade Dashboard</span>
+    <span class="header-year" id="hdr-year" style="display:none"></span>
+  </div>
+  <div class="header-right">
+    <button class="btn-hdr" id="btn-save-html" style="display:none" onclick="saveHtml()" title="Save">
+      <svg viewBox="0 0 20 20"><path d="M10 3v9M7 9l3 3 3-3"/><path d="M4 14v1.5A1.5 1.5 0 005.5 17h9a1.5 1.5 0 001.5-1.5V14"/></svg>
+    </button>
+    <button class="btn-hdr" id="btn-open-safari" style="display:none" onclick="openInSafari()" title="Open in Safari">
+      <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7"/><polyline points="10,7 10,10 12,12"/></svg>
+    </button>
+    <button class="btn-hdr" onclick="toggleImport()" title="Import">
+      <svg viewBox="0 0 20 20"><rect x="4" y="3" width="12" height="14" rx="2"/><path d="M10 7v6M8 11l2 2 2-2"/></svg>
+    </button>
+  </div>
+</header>
+
+<div class="tab-bar">
+  <button class="tab-btn active" id="tab-p1" onclick="switchTab('p1')">Countries</button>
+  <button class="tab-btn" id="tab-p2" onclick="switchTab('p2')">Products</button>
+</div>
+
+<main>
+<div class="page active" id="page-p1">
+
+  <div class="import-panel" id="import-panel">
+    <div class="drop-zone" id="drop-zone"
+      onclick="document.getElementById('file-input').click()"
+      ondragover="handleDrag(event,'over')"
+      ondragleave="handleDrag(event,'leave')"
+      ondrop="handleDrag(event,'drop')">
+      <div class="drop-icon"><svg viewBox="0 0 20 20"><rect x="3" y="2" width="14" height="16" rx="2"/><line x1="7" y1="7" x2="13" y2="7"/><line x1="7" y1="10" x2="13" y2="10"/><line x1="7" y1="13" x2="10" y2="13"/></svg></div>
+      <div class="drop-title">Drop your file here, or tap to browse</div>
+      <div class="drop-sub" style="margin-top:4px">Formats: <code>.xlsx</code> <code>.xls</code> <code>.csv</code></div>
+      <div class="drop-sub" style="margin-top:3px">Columns: <code>flow</code> <code>year</code> <code>value</code> <code>ru_name</code> <code>eng_name</code> <code>iso3</code></div>
+      <div id="status" class="status-msg"></div>
+    </div>
+    <input type="file" id="file-input" accept=".xlsx,.xls,.csv" onchange="handleFile(this.files[0])">
+  </div>
+
+  <div id="empty-state">
+    <div class="empty-state">
+      <div class="empty-icon"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+      <div class="empty-title">No data loaded</div>
+      <div class="empty-sub">Upload a file to populate the dashboard</div>
+    </div>
+  </div>
+
+  <div id="dashboard">
+
+    <div class="section">
+      <div class="section-eyebrow">Country lookup</div>
+      <div class="card">
+        <button class="search-trigger" onclick="openOverlay('country')">
+          <svg viewBox="0 0 16 16"><circle cx="6.5" cy="6.5" r="4"/><line x1="10" y1="10" x2="14" y2="14"/></svg>
+          <span id="lbl-country" class="search-trigger-text">Search by country name or ISO3…</span>
+        </button>
+        <div class="lookup-result" id="lookup-result"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px">
+        <div class="section-eyebrow" style="margin-bottom:0">Headline metrics</div>
+        <span style="font-size:10px;color:var(--text3)">mln USD</span>
+      </div>
+      <div class="card">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+          <div class="metric-card"><div class="metric-lbl">Total trade</div><div class="metric-val" id="m-total">—</div><div class="metric-sub" id="m-yr">—</div></div>
+          <div class="metric-card"><div class="metric-lbl">Export</div><div class="metric-val" id="m-exp">—</div><div class="metric-sub" id="m-yr2">—</div></div>
+          <div class="metric-card"><div class="metric-lbl">Import</div><div class="metric-val" id="m-imp">—</div><div class="metric-sub" id="m-yr3">—</div></div>
+          <div class="metric-card"><div class="metric-lbl">Balance</div><div class="metric-val" id="m-bal">—</div><div class="metric-sub" id="m-yr4">—</div></div>
+        </div>
+        <div class="divider"></div>
+        <div style="font-size:9px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Period changes</div>
+        <div class="changes-row" id="changes-grid"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-eyebrow">Top-10 countries</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title"><svg viewBox="0 0 16 16"><polyline points="2,10 6,6 10,8 14,3"/></svg>Top 10 by export</div>
+          <div class="tbl-scroll">
+            <div class="tbl-head" id="hd-exp" style="grid-template-columns:20px 1fr 52px 46px"><span></span><span>Country</span><span style="text-align:right">Value</span><span style="text-align:right">y/y</span></div>
+            <div id="tbl-exp"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><svg viewBox="0 0 16 16"><polyline points="2,3 6,7 10,5 14,10"/></svg>Top 10 by import</div>
+          <div class="tbl-scroll">
+            <div class="tbl-head" id="hd-imp" style="grid-template-columns:20px 1fr 52px 46px"><span></span><span>Country</span><span style="text-align:right">Value</span><span style="text-align:right">y/y</span></div>
+            <div id="tbl-imp"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-eyebrow">Top-20 largest absolute growth</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title"><svg viewBox="0 0 16 16"><polyline points="2,12 8,4 14,12"/></svg>Fastest growing — export</div>
+          <div class="tbl-scroll">
+            <div class="tbl-head" id="hd-exp-yoy" style="grid-template-columns:20px 1fr 52px 50px"><span></span><span>Country</span><span style="text-align:right">Value</span><span style="text-align:right">Δ abs</span></div>
+            <div id="tbl-exp-yoy"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><svg viewBox="0 0 16 16"><polyline points="2,12 8,4 14,12"/></svg>Fastest growing — import</div>
+          <div class="tbl-scroll">
+            <div class="tbl-head" id="hd-imp-yoy" style="grid-template-columns:20px 1fr 52px 50px"><span></span><span>Country</span><span style="text-align:right">Value</span><span style="text-align:right">Δ abs</span></div>
+            <div id="tbl-imp-yoy"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-eyebrow">Top-20 largest absolute decline</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title"><svg viewBox="0 0 16 16"><polyline points="2,4 8,12 14,4"/></svg>Largest declines — export</div>
+          <div class="tbl-scroll">
+            <div class="tbl-head" id="hd-exp-dec" style="grid-template-columns:20px 1fr 52px 50px"><span></span><span>Country</span><span style="text-align:right">Value</span><span style="text-align:right">Δ abs</span></div>
+            <div id="tbl-exp-dec"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><svg viewBox="0 0 16 16"><polyline points="2,4 8,12 14,4"/></svg>Largest declines — import</div>
+          <div class="tbl-scroll">
+            <div class="tbl-head" id="hd-imp-dec" style="grid-template-columns:20px 1fr 52px 50px"><span></span><span>Country</span><span style="text-align:right">Value</span><span style="text-align:right">Δ abs</span></div>
+            <div id="tbl-imp-dec"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div><!-- end page-p1 -->
+
+<div class="page" id="page-p2">
+
+  <div class="import-panel" id="p2-import-panel">
+    <div class="drop-zone" id="p2-drop-zone"
+      onclick="document.getElementById('p2-file-input').click()"
+      ondragover="handleDrag2(event,'over')"
+      ondragleave="handleDrag2(event,'leave')"
+      ondrop="handleDrag2(event,'drop')">
+      <div class="drop-icon"><svg viewBox="0 0 20 20"><rect x="3" y="2" width="14" height="16" rx="2"/><line x1="7" y1="7" x2="13" y2="7"/><line x1="7" y1="10" x2="13" y2="10"/><line x1="7" y1="13" x2="10" y2="13"/></svg></div>
+      <div class="drop-title">Drop the product groups file here</div>
+      <div class="drop-sub" style="margin-top:4px">Columns: <code>flow</code> <code>year</code> <code>tnved_code</code> <code>value</code> <code>name</code> <code>ru_name</code> <code>eng_name</code> <code>iso3</code></div>
+      <div id="p2-status" class="status-msg"></div>
+    </div>
+    <input type="file" id="p2-file-input" accept=".xlsx,.xls,.csv" onchange="handleFile2(this.files[0])">
+  </div>
+
+  <div id="p2-empty-state">
+    <div class="empty-state">
+      <div class="empty-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg></div>
+      <div class="empty-title">No product data loaded</div>
+      <div class="empty-sub">Upload the product groups file</div>
+    </div>
+  </div>
+
+  <div id="p2-dashboard">
+    <div class="section">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px">
+        <div class="section-eyebrow" style="margin-bottom:0">Total trade — product groups</div>
+        <span style="font-size:10px;color:var(--text3)">mln USD</span>
+      </div>
+      <div class="card">
+        <div id="p2-metrics" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px"></div>
+        <div class="divider"></div>
+        <div id="p2-overview-header" style="margin-bottom:10px"></div>
+        <div id="p2-overview-charts" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start"></div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-eyebrow">Country product breakdown</div>
+      <div class="card">
+        <button class="search-trigger" onclick="openOverlay('p2country')">
+          <svg viewBox="0 0 16 16"><circle cx="6.5" cy="6.5" r="4"/><line x1="10" y1="10" x2="14" y2="14"/></svg>
+          <span id="lbl-p2country" class="search-trigger-text">Search country by name or ISO3…</span>
+        </button>
+        <div id="p2-result" style="margin-top:14px"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end page-p2 -->
+</main>
+
+<!-- Search overlay -->
+<div class="search-overlay" id="search-overlay">
+  <div class="search-header">
+    <svg style="width:16px;height:16px;stroke:var(--text3);fill:none;stroke-width:2;flex-shrink:0" viewBox="0 0 16 16"><circle cx="6.5" cy="6.5" r="4"/><line x1="10" y1="10" x2="14" y2="14"/></svg>
+    <input class="search-field" id="search-field" type="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search…" oninput="onOverlayInput(this.value)">
+    <button class="search-cancel-btn" onclick="closeOverlay()">Cancel</button>
+  </div>
+  <div class="search-results" id="search-results">
+    <div class="search-empty" id="search-empty" style="display:none">No results</div>
+  </div>
+</div>
+
+<script id="embedded-data" type="application/json"></script>
+<script id="embedded-data-p2" type="application/json"></script>
+
+<script>
+// ── Telegram Mini App init ────────────────────────────────
+var tg = window.Telegram && window.Telegram.WebApp;
+(function initTelegram() {
+  if (!tg) return;
+  tg.ready();
+  tg.expand();
+  // Sync Telegram theme colors to CSS variables
+  var tp = tg.themeParams || {};
+  var root = document.documentElement;
+  if (tp.bg_color)          root.style.setProperty('--bg',      tp.bg_color);
+  if (tp.secondary_bg_color)root.style.setProperty('--surface2',tp.secondary_bg_color);
+  if (tp.text_color)        root.style.setProperty('--text',    tp.text_color);
+  if (tp.hint_color)        root.style.setProperty('--text3',   tp.hint_color);
+  if (tp.link_color)        root.style.setProperty('--accent',  tp.link_color);
+  // Show Telegram back button on search overlay
+  tg.BackButton.onClick(function() {
+    var overlay = document.getElementById('search-overlay');
+    if (overlay.style.display === 'flex') {
+      closeOverlay();
+      tg.BackButton.hide();
+    }
+  });
+})();
+
+// ── Tab switching ─────────────────────────────────────────
+function switchTab(id) {
+  ['p1','p2'].forEach(function(t){
+    document.getElementById('page-'+t).classList.toggle('active', t===id);
+    document.getElementById('tab-'+t).classList.toggle('active', t===id);
+  });
+}
+
+// ── Search overlay ────────────────────────────────────────
+var _overlayMode = '';
+
+function openOverlay(mode) {
+  _overlayMode = mode;
+  var overlay = document.getElementById('search-overlay');
+  var field   = document.getElementById('search-field');
+  overlay.style.display = 'flex';
+  document.getElementById('search-results').innerHTML = '<div class="search-empty" style="display:block">Start typing to search</div>';
+  field.value = '';
+  if (tg && tg.BackButton) tg.BackButton.show();
+  setTimeout(function(){ field.focus(); }, 100);
+}
+
+function closeOverlay() {
+  document.getElementById('search-overlay').style.display = 'none';
+  document.getElementById('search-field').blur();
+  if (tg && tg.BackButton) tg.BackButton.hide();
+}
+
+function onOverlayInput(val) {
+  var q = val.toLowerCase().trim();
+  var resultsEl = document.getElementById('search-results');
+  if (!q) {
+    resultsEl.innerHTML = '<div class="search-empty" style="display:block">Start typing to search</div>';
+    return;
+  }
+  var rows = _overlayMode === 'country' ? window._dashData : window._p2Data;
+  if (!rows) { resultsEl.innerHTML = ''; return; }
+
+  var seen = {}, matches = [];
+  rows.forEach(function(r){
+    var eng = (r.eng_name||'').toLowerCase();
+    var ru  = (r.ru_name ||'').toLowerCase();
+    var iso = (r.iso3    ||'').toLowerCase();
+    var key = r.eng_name||r.ru_name||r.iso3||'';
+    if (!seen[key] && (eng.indexOf(q)!==-1||ru.indexOf(q)!==-1||iso.indexOf(q)!==-1)) {
+      seen[key]=true;
+      matches.push({eng:r.eng_name||'',ru:r.ru_name||'',iso:r.iso3||''});
+    }
+  });
+
+  if (!matches.length) {
+    resultsEl.innerHTML = '<div class="search-empty" style="display:block">No results</div>';
+    return;
+  }
+
+  resultsEl.innerHTML = matches.slice(0,20).map(function(m,i){
+    var display = m.eng||m.ru;
+    return '<div class="search-result-item" data-idx="'+i+'">' +
+      '<span>'+display+'</span>' +
+      (m.iso ? '<span class="search-result-sub">'+m.iso+'</span>' : '') +
+    '</div>';
+  }).join('');
+
+  // Store matches for tap handler
+  window._overlayMatches = matches;
+  resultsEl.querySelectorAll('.search-result-item').forEach(function(el){
+    el.addEventListener('click', function(){
+      var m = window._overlayMatches[+this.dataset.idx];
+      var name = m.eng||m.ru;
+      if (tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
+      closeOverlay();
+      if (_overlayMode === 'country') {
+        document.getElementById('lbl-country').textContent = name;
+        document.getElementById('lbl-country').className = 'search-trigger-value';
+        renderCountryLookup(name);
+      } else {
+        document.getElementById('lbl-p2country').textContent = name;
+        document.getElementById('lbl-p2country').className = 'search-trigger-value';
+        renderP2Charts(name);
+      }
+    });
+  });
+}
+
+// ── Shared utilities ─────────────────────────────────────
+var importVisible = true;
+function toggleImport() {
+  importVisible = !importVisible;
+  document.getElementById('import-panel').classList.toggle('hidden', !importVisible);
+}
+function handleDrag(e,t){e.preventDefault();var z=document.getElementById('drop-zone');if(t==='over')z.classList.add('drag-over');else if(t==='leave')z.classList.remove('drag-over');else{z.classList.remove('drag-over');handleFile(e.dataTransfer.files[0]);}}
+
+function spaceSep(n){return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g,'\u00a0');}
+function fmt(v){var abs=Math.abs(v),sign=v<0?'−':'';if(abs>=1e9)return sign+'$'+spaceSep((abs/1e9).toFixed(1))+'B';if(abs>=1e6)return sign+'$'+spaceSep((abs/1e6).toFixed(0))+'M';return sign+'$'+spaceSep(Math.round(abs));}
+function pct(v){return(v>=0?'+':'')+v.toFixed(1)+'%';}
+function badge(v){if(v===null)return'<span class="badge bn">n/a</span>';return'<span class="badge '+(v>=0?'bg':'br')+'">'+pct(v)+'</span>';}
+function badgeAbs(v){var s=v>=0?'+':'−';return'<span class="badge '+(v>=0?'bg':'br')+'">'+s+fmt(Math.abs(v))+'</span>';}
+function chgPct(a,b){return b===0?null:((a-b)/Math.abs(b))*100;}
+
+// ── File import (page 1) ──────────────────────────────────
+function handleFile(file){
+  if(!file)return;
+  var ext=file.name.split('.').pop().toLowerCase();
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=ext==='csv'?XLSX.read(e.target.result,{type:'string'}):XLSX.read(e.target.result,{type:'array'});
+      var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+      if(!rows.length)throw new Error('File is empty');
+      var norm=rows.map(function(r){var o={};Object.keys(r).forEach(function(k){o[k.toLowerCase().trim()]=r[k];});return o;});
+      ['flow','year','value'].forEach(function(n){if(!Object.keys(norm[0]).includes(n))throw new Error('Missing column: '+n);});
+      document.getElementById('status').innerHTML='<span class="status-ok">✓ '+norm.length.toLocaleString()+' rows — '+file.name+'</span>';
+      document.getElementById('btn-save-html').style.display='flex';
+      document.getElementById('btn-open-safari').style.display='flex';
+      buildDashboard(norm);
+    }catch(err){document.getElementById('status').innerHTML='<span class="status-err">✗ '+err.message+'</span>';}
+  };
+  ext==='csv'?reader.readAsText(file,'UTF-8'):reader.readAsArrayBuffer(file);
+}
+
+// ── buildEmbeddedHtml / save / safari ────────────────────
+function buildEmbeddedHtml(){
+  var html=document.documentElement.outerHTML;
+  html=html.replace(/<script id="embedded-data"[^>]*><\/script>/,'<script id="embedded-data" type="application/json">'+JSON.stringify(window._dashData||null)+'<\/script>');
+  html=html.replace(/<script id="embedded-data-p2"[^>]*><\/script>/,'<script id="embedded-data-p2" type="application/json">'+JSON.stringify(window._p2Data||null)+'<\/script>');
+  return html;
+}
+function saveHtml(){var h=buildEmbeddedHtml(),b=new Blob([h],{type:'text/html;charset=utf-8;'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download='trade_dashboard.html';a.click();URL.revokeObjectURL(u);}
+function openInSafari(){var h=buildEmbeddedHtml(),b=new Blob([h],{type:'text/html;charset=utf-8;'}),u=URL.createObjectURL(b);window.open(u,'_blank');}
+
+// ── buildDashboard ────────────────────────────────────────
+function buildDashboard(rows){
+  window._dashData=rows;
+  var sampleYear=String(rows[0].year||'');
+  var isPeriodMode=isNaN(+sampleYear)||sampleYear.trim()==='';
+  var tblCols='20px 1fr 52px 46px', tblCols2='20px 1fr 52px 50px';
+
+  if(isPeriodMode){
+    var periods=Array.from(new Set(rows.map(function(r){return String(r.year||'');}))).sort();
+    var latestP=periods[periods.length-1],prevP=periods.length>1?periods[periods.length-2]:null;
+    function sumP(p,fl){return rows.filter(function(r){return String(r.year||'')==p&&r.flow===fl;}).reduce(function(a,b){return a+(+b.value||0);},0);}
+    var expNow=sumP(latestP,'эк'),impNow=sumP(latestP,'им'),expPrev=prevP?sumP(prevP,'эк'):0,impPrev=prevP?sumP(prevP,'им'):0;
+    var totNow=expNow+impNow,totPrev=expPrev+impPrev,balNow=expNow-impNow,balPrev=expPrev-impPrev;
+    document.getElementById('m-total').textContent=fmt(totNow);document.getElementById('m-exp').textContent=fmt(expNow);document.getElementById('m-imp').textContent=fmt(impNow);document.getElementById('m-bal').textContent=fmt(balNow);
+    ['m-yr','m-yr2','m-yr3','m-yr4'].forEach(function(id){document.getElementById(id).textContent=latestP;});
+    document.getElementById('hdr-year').textContent=latestP;document.getElementById('hdr-year').style.display='inline';
+    var pl=prevP||'—';
+    document.getElementById('changes-grid').innerHTML=[
+      {label:'Total trade',rows:[{lbl:'y/y vs '+pl,v:chgPct(totNow,totPrev),abs:false}]},
+      {label:'Export',rows:[{lbl:'y/y vs '+pl,v:chgPct(expNow,expPrev),abs:false}]},
+      {label:'Import',rows:[{lbl:'y/y vs '+pl,v:chgPct(impNow,impPrev),abs:false}]},
+      {label:'Balance',rows:[{lbl:'Δ vs '+pl,v:balNow-balPrev,abs:true}]}
+    ].map(function(c){return'<div class="change-col"><div class="change-col-title">'+c.label+'</div>'+c.rows.map(function(r){return'<div class="change-row"><span class="change-lbl">'+r.lbl+'</span>'+(r.abs?badgeAbs(r.v):badge(r.v))+'</div>';}).join('')+'</div>';}).join('');
+    function cMapP(fl,p){var m={};rows.filter(function(r){return String(r.year||'')==p&&r.flow===fl;}).forEach(function(r){var k=r.eng_name||r.ru_name||r.iso3||'Unknown';m[k]=(m[k]||0)+(+r.value||0);});return m;}
+    function rTop10P(elId,fl){var now=cMapP(fl,latestP),prev=prevP?cMapP(fl,prevP):{};var s=Object.entries(now).sort(function(a,b){return b[1]-a[1];}).slice(0,10);document.getElementById(elId).innerHTML=s.map(function(e,i){var n=e[0],v=e[1],p=prev[n]||0,y=p?chgPct(v,p):null;return'<div class="tbl-row" style="grid-template-columns:'+tblCols+'"><span class="rank">'+(i+1)+'</span><span class="country-name">'+n+'</span><span class="val-cell">'+fmt(v)+'</span><span class="yoy-cell">'+badge(y)+'</span></div>';}).join('');}
+    function rTop20P(elId,fl,dec){var now=cMapP(fl,latestP),prev=prevP?cMapP(fl,prevP):{};var sc=Object.keys(now).filter(function(n){return prev[n]!==undefined;}).map(function(n){var v=now[n],p=prev[n]||0;return{name:n,val:v,delta:v-p,pct:p?chgPct(v,p):null};});sc=dec?sc.filter(function(x){return x.delta<0;}).sort(function(a,b){return a.delta-b.delta;}).slice(0,20):sc.filter(function(x){return x.delta>0;}).sort(function(a,b){return b.delta-a.delta;}).slice(0,20);document.getElementById(elId).innerHTML=sc.map(function(x,i){return'<div class="tbl-row" style="grid-template-columns:'+tblCols2+'"><span class="rank">'+(i+1)+'</span><span class="country-name">'+x.name+'</span><span class="val-cell">'+fmt(x.val)+'</span><span class="yoy-cell">'+badgeAbs(x.delta)+'</span></div>';}).join('');}
+    rTop10P('tbl-exp','эк');rTop10P('tbl-imp','им');rTop20P('tbl-exp-yoy','эк',false);rTop20P('tbl-imp-yoy','им',false);rTop20P('tbl-exp-dec','эк',true);rTop20P('tbl-imp-dec','им',true);
+    document.getElementById('empty-state').style.display='none';document.getElementById('dashboard').classList.add('visible');return;
+  }
+
+  var years=Array.from(new Set(rows.map(function(r){return+r.year;}))).sort();
+  var maxY=years[years.length-1],prevY=maxY-1;
+  function sum(yr,fl){return rows.filter(function(r){return+r.year===yr&&r.flow===fl;}).reduce(function(a,b){return a+(+b.value||0);},0);}
+  var expNow=sum(maxY,'эк'),impNow=sum(maxY,'им'),expPrev=sum(prevY,'эк'),impPrev=sum(prevY,'им');
+  var exp21=sum(2021,'эк'),imp21=sum(2021,'им'),exp19=sum(2019,'эк'),imp19=sum(2019,'им'),exp10=sum(maxY-10,'эк'),imp10=sum(maxY-10,'им');
+  var totNow=expNow+impNow,totPrev=expPrev+impPrev,tot21=exp21+imp21,tot19=exp19+imp19,tot10=exp10+imp10;
+  var balNow=expNow-impNow,balPrev=expPrev-impPrev,bal21=exp21-imp21,bal19=exp19-imp19,bal10=exp10-imp10;
+  document.getElementById('m-total').textContent=fmt(totNow);document.getElementById('m-exp').textContent=fmt(expNow);document.getElementById('m-imp').textContent=fmt(impNow);document.getElementById('m-bal').textContent=fmt(balNow);
+  ['m-yr','m-yr2','m-yr3','m-yr4'].forEach(function(id){document.getElementById(id).textContent=maxY;});
+  document.getElementById('hdr-year').textContent=maxY;document.getElementById('hdr-year').style.display='inline';
+  var cols=[{label:'Total trade',rows:[{lbl:'y/y',v:chgPct(totNow,totPrev),abs:false},{lbl:'vs 2021',v:chgPct(totNow,tot21),abs:false},{lbl:'vs 2019',v:chgPct(totNow,tot19),abs:false},{lbl:'10-year',v:chgPct(totNow,tot10),abs:false}]},{label:'Export',rows:[{lbl:'y/y',v:chgPct(expNow,expPrev),abs:false},{lbl:'vs 2021',v:chgPct(expNow,exp21),abs:false},{lbl:'vs 2019',v:chgPct(expNow,exp19),abs:false},{lbl:'10-year',v:chgPct(expNow,exp10),abs:false}]},{label:'Import',rows:[{lbl:'y/y',v:chgPct(impNow,impPrev),abs:false},{lbl:'vs 2021',v:chgPct(impNow,imp21),abs:false},{lbl:'vs 2019',v:chgPct(impNow,imp19),abs:false},{lbl:'10-year',v:chgPct(impNow,imp10),abs:false}]},{label:'Balance',rows:[{lbl:'y/y Δ',v:balNow-balPrev,abs:true},{lbl:'vs 2021 Δ',v:balNow-bal21,abs:true},{lbl:'vs 2019 Δ',v:balNow-bal19,abs:true},{lbl:'10-year Δ',v:balNow-bal10,abs:true}]}];
+  document.getElementById('changes-grid').innerHTML=cols.map(function(c){return'<div class="change-col"><div class="change-col-title">'+c.label+'</div>'+c.rows.map(function(r){return'<div class="change-row"><span class="change-lbl">'+r.lbl+'</span>'+(r.abs?badgeAbs(r.v):badge(r.v))+'</div>';}).join('')+'</div>';}).join('');
+  function nameOf(r){return r.eng_name||r.ru_name||r.iso3||'Unknown';}
+  function cMap(fl,yr){var m={};rows.filter(function(r){return+r.year===yr&&r.flow===fl;}).forEach(function(r){var k=nameOf(r);m[k]=(m[k]||0)+(+r.value||0);});return m;}
+  function rTop10(elId,fl){var now=cMap(fl,maxY),prev=cMap(fl,prevY);var s=Object.entries(now).sort(function(a,b){return b[1]-a[1];}).slice(0,10);document.getElementById(elId).innerHTML=s.map(function(e,i){var n=e[0],v=e[1],p=prev[n]||0,y=p?chgPct(v,p):null;return'<div class="tbl-row" style="grid-template-columns:'+tblCols+'"><span class="rank">'+(i+1)+'</span><span class="country-name">'+n+'</span><span class="val-cell">'+fmt(v)+'</span><span class="yoy-cell">'+badge(y)+'</span></div>';}).join('');}
+  function rTop20(elId,fl,dec){var now=cMap(fl,maxY),prev=cMap(fl,prevY);var sc=Object.keys(now).filter(function(n){return prev[n]!==undefined;}).map(function(n){var v=now[n],p=prev[n]||0;return{name:n,val:v,delta:v-p,pct:p?chgPct(v,p):null};});sc=dec?sc.filter(function(x){return x.delta<0;}).sort(function(a,b){return a.delta-b.delta;}).slice(0,20):sc.filter(function(x){return x.delta>0;}).sort(function(a,b){return b.delta-a.delta;}).slice(0,20);document.getElementById(elId).innerHTML=sc.map(function(x,i){return'<div class="tbl-row" style="grid-template-columns:'+tblCols2+'"><span class="rank">'+(i+1)+'</span><span class="country-name">'+x.name+'</span><span class="val-cell">'+fmt(x.val)+'</span><span class="yoy-cell">'+badgeAbs(x.delta)+'</span></div>';}).join('');}
+  rTop10('tbl-exp','эк');rTop10('tbl-imp','им');rTop20('tbl-exp-yoy','эк',false);rTop20('tbl-imp-yoy','им',false);rTop20('tbl-exp-dec','эк',true);rTop20('tbl-imp-dec','им',true);
+  document.getElementById('empty-state').style.display='none';document.getElementById('dashboard').classList.add('visible');
+}
+
+// ── Country lookup ────────────────────────────────────────
+function renderCountryLookup(name){
+  var rows=window._dashData;if(!rows)return;
+  var nl=name.toLowerCase();
+  var cr=rows.filter(function(r){return(r.eng_name||'').toLowerCase()===nl||(r.ru_name||'').toLowerCase()===nl||(r.iso3||'').toLowerCase()===nl;});
+  if(!cr.length){document.getElementById('lookup-result').innerHTML='<div class="lookup-empty">No data found for "'+name+'".</div>';return;}
+  var s=cr[0],engName=s.eng_name||name,ruName=s.ru_name||'',iso3=s.iso3||'';
+  var isPM=isNaN(+(cr[0].year||''));
+  var periods=Array.from(new Set(cr.map(function(r){return isPM?String(r.year||''):+r.year;}))).sort();
+  var maxP=periods[periods.length-1],prevP2=periods.length>1?periods[periods.length-2]:null;
+  function sy(p,fl){return cr.filter(function(r){return(isPM?String(r.year||''):+r.year)===p&&r.flow===fl;}).reduce(function(a,b){return a+(+b.value||0);},0);}
+  var allData=periods.map(function(p,i){var exp=sy(p,'эк'),imp=sy(p,'им'),tot=exp+imp,bal=exp-imp;return{p:p,tot:tot,exp:exp,imp:imp,bal:bal};});
+  function yoyP(cur,prev,f){if(!prev||prev[f]===0)return null;return((cur[f]-prev[f])/Math.abs(prev[f]))*100;}
+  var tableRows=allData.map(function(d,i){var prev=i>0?allData[i-1]:null;return{yr:d.p,tot:d.tot,exp:d.exp,imp:d.imp,bal:d.bal,totYoy:prev?yoyP(d,prev,'tot'):null,expYoy:prev?yoyP(d,prev,'exp'):null,impYoy:prev?yoyP(d,prev,'imp'):null,balDelta:prev?d.bal-prev.bal:null};}).reverse().slice(0,5);
+  var cols='1fr 1fr 1fr 10px 1fr 1fr 10px 1fr 1fr 10px 1fr 1fr';
+  var html='<div class="lookup-country-header">'+(iso3?'<span class="lookup-flag">'+iso3+'</span>':'')+'<span class="lookup-country-name">'+engName+'</span>'+(ruName?'<span class="lookup-country-ru">/ '+ruName+'</span>':'')+'</div>'
+    +'<div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><div style="min-width:520px">'
+    +'<div class="lookup-tbl-head" style="grid-template-columns:'+cols+'"><span>Period</span><span style="text-align:right">Total</span><span style="text-align:right">y/y</span><span></span><span style="text-align:right">Export</span><span style="text-align:right">y/y</span><span></span><span style="text-align:right">Import</span><span style="text-align:right">y/y</span><span></span><span style="text-align:right">Balance</span><span style="text-align:right">Δ</span></div>'
+    +tableRows.map(function(r){return'<div class="lookup-tbl-row" style="grid-template-columns:'+cols+'"><span style="font-family:var(--mono);font-size:9px;color:var(--text3)">'+r.yr+'</span><span class="val-cell">'+fmt(r.tot)+'</span><span class="yoy-cell">'+badge(r.totYoy)+'</span><span></span><span class="val-cell">'+fmt(r.exp)+'</span><span class="yoy-cell">'+badge(r.expYoy)+'</span><span></span><span class="val-cell">'+fmt(r.imp)+'</span><span class="yoy-cell">'+badge(r.impYoy)+'</span><span></span><span class="val-cell">'+fmt(r.bal)+'</span><span class="yoy-cell">'+(r.balDelta!==null?badgeAbs(r.balDelta):'<span class="badge bn">—</span>')+'</span></div>';}).join('')
+    +'</div></div>';
+  document.getElementById('lookup-result').innerHTML=html;
+}
+
+// ── Page 2 import ─────────────────────────────────────────
+function handleDrag2(e,t){e.preventDefault();var z=document.getElementById('p2-drop-zone');if(t==='over')z.classList.add('drag-over');else if(t==='leave')z.classList.remove('drag-over');else{z.classList.remove('drag-over');handleFile2(e.dataTransfer.files[0]);}}
+function handleFile2(file){
+  if(!file)return;var ext=file.name.split('.').pop().toLowerCase();var reader=new FileReader();
+  reader.onload=function(e){
+    try{var wb=ext==='csv'?XLSX.read(e.target.result,{type:'string'}):XLSX.read(e.target.result,{type:'array'});var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);if(!rows.length)throw new Error('File is empty');
+    var norm=rows.map(function(r){var o={};Object.keys(r).forEach(function(k){o[k.toLowerCase().trim()]=r[k];});return o;});
+    document.getElementById('p2-status').innerHTML='<span class="status-ok">✓ '+norm.length.toLocaleString()+' rows — '+file.name+'</span>';
+    document.getElementById('p2-import-panel').classList.add('hidden');
+    initP2(norm);}catch(err){document.getElementById('p2-status').innerHTML='<span class="status-err">✗ '+err.message+'</span>';}
+  };ext==='csv'?reader.readAsText(file,'UTF-8'):reader.readAsArrayBuffer(file);
+}
+
+function initP2(rows){window._p2Data=rows;document.getElementById('p2-empty-state').style.display='none';document.getElementById('p2-dashboard').style.display='flex';renderP2Overview(rows);}
+
+function renderP2Overview(rows){
+  var fc=rows[0].hasOwnProperty('flow')?'flow':'fllow';
+  var periods=Array.from(new Set(rows.map(function(r){return String(r.year||r.period||'');}))).sort();
+  var lp=periods[periods.length-1],pp=periods.length>1?periods[periods.length-2]:null;
+  function sg(p,g,fv){return rows.filter(function(r){return String(r.year||r.period||'')==p&&(r.name||'')==g&&fv.indexOf(String(r[fc]||''))!==-1;}).reduce(function(a,b){return a+(+b.value||0);},0);}
+  function bg(fv){var gs=Array.from(new Set(rows.filter(function(r){return String(r.year||r.period||'')==lp&&fv.indexOf(String(r[fc]||''))!==-1;}).map(function(r){return r.name||'';})));return gs.map(function(g){var cur=sg(lp,g,fv),prev=pp?sg(pp,g,fv):null,pct=(prev&&prev!==0)?((cur-prev)/Math.abs(prev))*100:null;return{name:g,cur:cur,prev:prev,pct:pct};}).filter(function(g){return g.cur>0;}).sort(function(a,b){return b.cur-a.cur;});}
+  var eg=bg(['Эк','эк']),ig=bg(['Им','им']);
+  var te=eg.reduce(function(s,g){return s+g.cur;},0),ti=ig.reduce(function(s,g){return s+g.cur;},0);
+  var pe=eg.reduce(function(s,g){return s+(g.prev||0);},0),pi=ig.reduce(function(s,g){return s+(g.prev||0);},0);
+  var tty=pe?((te-pe)/Math.abs(pe))*100:null,tiy=pi?((ti-pi)/Math.abs(pi))*100:null;
+  var tot=te+ti,ptot=pe+pi,bal=te-ti,pbal=pe-pi;
+  var totY=ptot?((tot-ptot)/Math.abs(ptot))*100:null,balD=pp?bal-pbal:null;
+  document.getElementById('p2-metrics').innerHTML='<div class="metric-card"><div class="metric-lbl">Total trade</div><div class="metric-val">'+fmt(tot)+'</div><div style="margin-top:4px">'+badge(totY)+'</div></div><div class="metric-card"><div class="metric-lbl">Export</div><div class="metric-val">'+fmt(te)+'</div><div style="margin-top:4px">'+badge(tty)+'</div></div><div class="metric-card"><div class="metric-lbl">Import</div><div class="metric-val">'+fmt(ti)+'</div><div style="margin-top:4px">'+badge(tiy)+'</div></div><div class="metric-card"><div class="metric-lbl">Balance</div><div class="metric-val">'+fmt(bal)+'</div><div style="margin-top:4px">'+(balD!==null?badgeAbs(balD):'')+'</div></div>';
+  document.getElementById('p2-overview-header').innerHTML='<div style="font-size:9px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">'+lp+(pp?' vs '+pp:'')+'</div>';
+  function br(items,max){return items.map(function(g){var p=Math.round(g.cur/max*100);return'<div class="bar-row"><div class="bar-row-top"><span class="bar-label">'+g.name+'</span><div class="bar-meta"><span class="bar-val">'+fmt(g.cur)+'</span><span>'+(g.pct!==null?badge(g.pct):'<span class="badge bn">—</span>')+'</span></div></div><div class="bar-track"><div class="bar-fill" style="width:'+p+'%"></div></div></div>';}).join('');}
+  var me=eg.length?eg[0].cur:1,mi=ig.length?ig[0].cur:1;
+  document.getElementById('p2-overview-charts').innerHTML='<div><div class="chart-title">Export</div>'+(eg.length?br(eg,me):'<div class="lookup-empty">No data</div>')+'</div><div><div class="chart-title">Import</div>'+(ig.length?br(ig,mi):'<div class="lookup-empty">No data</div>')+'</div>';
+}
+
+function renderP2Charts(countryName){
+  var rows=window._p2Data;if(!rows)return;
+  var nl=countryName.toLowerCase();
+  var cr=rows.filter(function(r){return(r.eng_name||'').toLowerCase()===nl||(r.ru_name||'').toLowerCase()===nl||(r.iso3||'').toLowerCase()===nl;});
+  if(!cr.length){document.getElementById('p2-result').innerHTML='<div class="lookup-empty">No data for "'+countryName+'".</div>';return;}
+  var s=cr[0],engName=s.eng_name||countryName,ruName=s.ru_name||'',iso3=s.iso3||'';
+  var fc=cr[0].hasOwnProperty('flow')?'flow':'fllow';
+  var periods=Array.from(new Set(cr.map(function(r){return String(r.year||r.period||'');}))).sort();
+  var lp=periods[periods.length-1],pp=periods.length>1?periods[periods.length-2]:null;
+  function sg(p,g,fv){return cr.filter(function(r){return String(r.year||r.period||'')==p&&(r.name||'')==g&&fv.indexOf(String(r[fc]||''))!==-1;}).reduce(function(a,b){return a+(+b.value||0);},0);}
+  function bg(fv){var gs=Array.from(new Set(cr.filter(function(r){return String(r.year||r.period||'')==lp&&fv.indexOf(String(r[fc]||''))!==-1;}).map(function(r){return r.name||'';})));return gs.map(function(g){var cur=sg(lp,g,fv),prev=pp?sg(pp,g,fv):null,pct=(prev&&prev!==0)?((cur-prev)/Math.abs(prev))*100:null;return{name:g,cur:cur,pct:pct};}).filter(function(g){return g.cur>0;}).sort(function(a,b){return b.cur-a.cur;});}
+  var eg=bg(['Эк','эк']),ig=bg(['Им','им']);
+  var me=eg.length?eg[0].cur:1,mi=ig.length?ig[0].cur:1;
+  function br(items,max){return items.map(function(g){var p=Math.round(g.cur/max*100);return'<div class="bar-row"><div class="bar-row-top"><span class="bar-label">'+g.name+'</span><div class="bar-meta"><span class="bar-val">'+fmt(g.cur)+'</span><span>'+(g.pct!==null?badge(g.pct):'<span class="badge bn">—</span>')+'</span></div></div><div class="bar-track"><div class="bar-fill" style="width:'+p+'%"></div></div></div>';}).join('');}
+  var pl=lp+(pp?' vs '+pp:'');
+  document.getElementById('p2-result').innerHTML='<div class="prod-header">'+(iso3?'<span class="prod-code">'+iso3+'</span>':'')+'<span class="lookup-country-name">'+engName+'</span>'+(ruName?'<span class="lookup-country-ru">/ '+ruName+'</span>':'')+'</div><div class="chart-title" style="margin-bottom:10px">'+pl+' · mln USD</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start"><div><div class="chart-title">Export</div>'+(eg.length?br(eg,me):'<div class="lookup-empty">No data</div>')+'</div><div><div class="chart-title">Import</div>'+(ig.length?br(ig,mi):'<div class="lookup-empty">No data</div>')+'</div></div>';
+}
+
+// ── Auto-load embedded data ───────────────────────────────
+(function(){
+  var el=document.getElementById('embedded-data');
+  if(el&&el.textContent.trim()){try{var d=JSON.parse(el.textContent);if(d&&d.length){document.getElementById('btn-save-html').style.display='flex';document.getElementById('btn-open-safari').style.display='flex';document.getElementById('import-panel').classList.add('hidden');buildDashboard(d);}}catch(e){}}
+  var el2=document.getElementById('embedded-data-p2');
+  if(el2&&el2.textContent.trim()){try{var d2=JSON.parse(el2.textContent);if(d2&&d2.length){document.getElementById('p2-import-panel').classList.add('hidden');initP2(d2);}}catch(e){}}
+})();
+</script>
+</body>
+</html>

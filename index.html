@@ -102,19 +102,20 @@ main{padding:14px 14px max(48px,calc(env(safe-area-inset-bottom) + 20px))}
 .search-trigger-text{font-size:14px;color:var(--text3)}
 .search-trigger-value{font-size:14px;color:var(--text);font-weight:500}
 
-/* search overlay */
-.search-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:300;background:var(--surface)}
-.search-overlay.open{display:flex;flex-direction:column}
-.search-header{display:flex;align-items:center;gap:10px;padding:12px 14px;padding-top:max(12px,env(safe-area-inset-top));border-bottom:.5px solid var(--border2);flex-shrink:0}
-.search-field{flex:1;padding:9px 12px;font-size:16px;font-family:-apple-system,sans-serif;border:.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);outline:none}
+/* inline search box (replaces full-screen overlay) */
+.search-box{display:none;margin-top:8px}
+.search-box.open{display:block}
+.search-box-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.search-field{flex:1;padding:10px 12px;font-size:16px;font-family:-apple-system,sans-serif;border:.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);outline:none;width:100%}
 .search-field:focus{background:var(--surface);border-color:var(--text3)}
-.search-cancel-btn{font-size:15px;font-weight:500;color:#007AFF;background:none;border:none;cursor:pointer;padding:6px 0;flex-shrink:0;-webkit-tap-highlight-color:transparent}
-.search-results{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
-.search-result-item{padding:13px 16px;border-bottom:.5px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent;display:block;width:100%}
+.search-cancel-btn{font-size:15px;font-weight:500;color:#007AFF;background:none;border:none;cursor:pointer;padding:6px 0;flex-shrink:0;white-space:nowrap;-webkit-tap-highlight-color:transparent}
+.search-results{background:var(--surface);border:.5px solid var(--border2);border-radius:var(--radius-sm);overflow:hidden}
+.search-result-item{padding:13px 14px;border-bottom:.5px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent;display:block;width:100%}
+.search-result-item:last-child{border-bottom:none}
 .search-result-item:active{background:var(--surface2)}
 .search-result-name{font-size:15px;color:var(--text);display:block;line-height:1.3}
 .search-result-meta{font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:2px;display:block}
-.search-empty{padding:32px 16px;text-align:center;font-size:14px;color:var(--text3)}
+.search-empty{padding:20px 14px;text-align:center;font-size:14px;color:var(--text3)}
 
 /* lookup result */
 .lookup-result{margin-top:14px;overflow-x:auto;-webkit-overflow-scrolling:touch}
@@ -209,10 +210,17 @@ main{padding:14px 14px max(48px,calc(env(safe-area-inset-bottom) + 20px))}
     <div class="section">
       <div class="section-eyebrow">Country lookup</div>
       <div class="card">
-        <button class="search-trigger" onclick="openOverlay('country')">
+        <button class="search-trigger" id="trigger-country" onclick="openSearch('country')">
           <svg viewBox="0 0 16 16"><circle cx="6.5" cy="6.5" r="4"/><line x1="10" y1="10" x2="14" y2="14"/></svg>
           <span id="lbl-country" class="search-trigger-text">Search by country name or ISO3…</span>
         </button>
+        <div class="search-box" id="box-country">
+          <div class="search-box-row">
+            <input class="search-field" id="field-country" type="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search…" oninput="onSearchInput(this.value,'country')">
+            <button class="search-cancel-btn" onclick="closeSearch('country')">Cancel</button>
+          </div>
+          <div class="search-results" id="results-country"></div>
+        </div>
         <div class="lookup-result" id="lookup-result"></div>
       </div>
     </div>
@@ -338,10 +346,17 @@ main{padding:14px 14px max(48px,calc(env(safe-area-inset-bottom) + 20px))}
     <div class="section">
       <div class="section-eyebrow">Country product breakdown</div>
       <div class="card">
-        <button class="search-trigger" onclick="openOverlay('p2country')">
+        <button class="search-trigger" id="trigger-p2country" onclick="openSearch('p2country')">
           <svg viewBox="0 0 16 16"><circle cx="6.5" cy="6.5" r="4"/><line x1="10" y1="10" x2="14" y2="14"/></svg>
           <span id="lbl-p2country" class="search-trigger-text">Search country by name or ISO3…</span>
         </button>
+        <div class="search-box" id="box-p2country">
+          <div class="search-box-row">
+            <input class="search-field" id="field-p2country" type="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search…" oninput="onSearchInput(this.value,'p2country')">
+            <button class="search-cancel-btn" onclick="closeSearch('p2country')">Cancel</button>
+          </div>
+          <div class="search-results" id="results-p2country"></div>
+        </div>
         <div id="p2-result" style="margin-top:14px"></div>
       </div>
     </div>
@@ -349,18 +364,6 @@ main{padding:14px 14px max(48px,calc(env(safe-area-inset-bottom) + 20px))}
 
 </div><!-- end page-p2 -->
 </main>
-
-<!-- Search overlay -->
-<div class="search-overlay" id="search-overlay">
-  <div class="search-header">
-    <svg style="width:16px;height:16px;stroke:var(--text3);fill:none;stroke-width:2;flex-shrink:0" viewBox="0 0 16 16"><circle cx="6.5" cy="6.5" r="4"/><line x1="10" y1="10" x2="14" y2="14"/></svg>
-    <input class="search-field" id="search-field" type="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search…" oninput="onOverlayInput(this.value)">
-    <button class="search-cancel-btn" onclick="closeOverlay()">Cancel</button>
-  </div>
-  <div class="search-results" id="search-results">
-    <div class="search-empty" id="search-empty" style="display:none">No results</div>
-  </div>
-</div>
 
 <script id="embedded-data" type="application/json"></script>
 <script id="embedded-data-p2" type="application/json"></script>
@@ -376,7 +379,6 @@ var tg = window.Telegram && window.Telegram.WebApp;
   if(tp.secondary_bg_color)r.style.setProperty('--surface2',tp.secondary_bg_color);
   if(tp.text_color)r.style.setProperty('--text',tp.text_color);
   if(tp.hint_color)r.style.setProperty('--text3',tp.hint_color);
-  tg.BackButton.onClick(function(){var o=document.getElementById('search-overlay');if(o.style.display==='flex'){closeOverlay();tg.BackButton.hide();}});
 })();
 
 // ── Tab switching ─────────────────────────────────────────
@@ -387,34 +389,40 @@ function switchTab(id) {
   });
 }
 
-// ── Search overlay ────────────────────────────────────────
-var _overlayMode = '';
+// ── Inline search ─────────────────────────────────────────
+var _searchMode = '';
 
-function openOverlay(mode) {
-  _overlayMode = mode;
-  var overlay = document.getElementById('search-overlay');
-  var field   = document.getElementById('search-field');
-  overlay.style.display = 'flex';
-  if(tg&&tg.BackButton)tg.BackButton.show();
-  document.getElementById('search-results').innerHTML = '<div class="search-empty" style="display:block">Start typing to search</div>';
-  field.value = '';
-  setTimeout(function(){ field.focus(); }, 100);
+function openSearch(mode) {
+  // Close any other open search first
+  ['country','p2country'].forEach(function(m){
+    if (m !== mode) {
+      document.getElementById('box-'+m).classList.remove('open');
+      document.getElementById('field-'+m).value = '';
+      document.getElementById('results-'+m).innerHTML = '';
+    }
+  });
+  _searchMode = mode;
+  var box   = document.getElementById('box-'+mode);
+  var field = document.getElementById('field-'+mode);
+  box.classList.add('open');
+  document.getElementById('trigger-'+mode).style.display = 'none';
+  setTimeout(function(){ field.focus(); }, 80);
 }
 
-function closeOverlay() {
-  document.getElementById('search-overlay').style.display = 'none';
-  if(tg&&tg.BackButton)tg.BackButton.hide();
-  document.getElementById('search-field').blur();
+function closeSearch(mode) {
+  document.getElementById('box-'+mode).classList.remove('open');
+  document.getElementById('field-'+mode).value = '';
+  document.getElementById('results-'+mode).innerHTML = '';
+  document.getElementById('trigger-'+mode).style.display = 'flex';
+  document.getElementById('field-'+mode).blur();
 }
 
-function onOverlayInput(val) {
+function onSearchInput(val, mode) {
   var q = val.toLowerCase().trim();
-  var resultsEl = document.getElementById('search-results');
-  if (!q) {
-    resultsEl.innerHTML = '<div class="search-empty" style="display:block">Start typing to search</div>';
-    return;
-  }
-  var rows = _overlayMode === 'country' ? window._dashData : window._p2Data;
+  var resultsEl = document.getElementById('results-'+mode);
+  if (!q) { resultsEl.innerHTML = ''; return; }
+
+  var rows = mode === 'country' ? window._dashData : window._p2Data;
   if (!rows) { resultsEl.innerHTML = ''; return; }
 
   var seen = {}, matches = [];
@@ -430,7 +438,7 @@ function onOverlayInput(val) {
   });
 
   if (!matches.length) {
-    resultsEl.innerHTML = '<div class="search-empty" style="display:block">No results</div>';
+    resultsEl.innerHTML = '<div class="search-empty">No results</div>';
     return;
   }
 
@@ -443,20 +451,18 @@ function onOverlayInput(val) {
     '</div>';
   }).join('');
 
-  // Store matches for tap handler
-  window._overlayMatches = matches;
+  window._searchMatches = matches;
   resultsEl.querySelectorAll('.search-result-item').forEach(function(el){
     el.addEventListener('click', function(){
-      var m = window._overlayMatches[+this.dataset.idx];
+      var m = window._searchMatches[+this.dataset.idx];
       var name = m.eng||m.ru;
-      closeOverlay();
-      if (_overlayMode === 'country') {
-        document.getElementById('lbl-country').textContent = name;
-        document.getElementById('lbl-country').className = 'search-trigger-value';
+      closeSearch(mode);
+      var lbl = document.getElementById('lbl-'+mode);
+      lbl.textContent = name;
+      lbl.className = 'search-trigger-value';
+      if (mode === 'country') {
         renderCountryLookup(name);
       } else {
-        document.getElementById('lbl-p2country').textContent = name;
-        document.getElementById('lbl-p2country').className = 'search-trigger-value';
         renderP2Charts(name);
       }
     });

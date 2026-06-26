@@ -110,9 +110,10 @@ main{padding:14px 14px max(48px,calc(env(safe-area-inset-bottom) + 20px))}
 .search-field:focus{background:var(--surface);border-color:var(--text3)}
 .search-cancel-btn{font-size:15px;font-weight:500;color:#007AFF;background:none;border:none;cursor:pointer;padding:6px 0;flex-shrink:0;-webkit-tap-highlight-color:transparent}
 .search-results{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
-.search-result-item{padding:14px 16px;font-size:15px;color:var(--text);border-bottom:.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.search-result-item{padding:13px 16px;border-bottom:.5px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent;display:block;width:100%}
 .search-result-item:active{background:var(--surface2)}
-.search-result-sub{font-size:12px;color:var(--text3);font-family:var(--mono)}
+.search-result-name{font-size:15px;color:var(--text);display:block;line-height:1.3}
+.search-result-meta{font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:2px;display:block}
 .search-empty{padding:32px 16px;text-align:center;font-size:14px;color:var(--text3)}
 
 /* lookup result */
@@ -435,9 +436,10 @@ function onOverlayInput(val) {
 
   resultsEl.innerHTML = matches.slice(0,20).map(function(m,i){
     var display = m.eng||m.ru;
+    var meta = [m.iso, (m.eng && m.ru ? m.ru : '')].filter(Boolean).join(' · ');
     return '<div class="search-result-item" data-idx="'+i+'">' +
-      '<span>'+display+'</span>' +
-      (m.iso ? '<span class="search-result-sub">'+m.iso+'</span>' : '') +
+      '<span class="search-result-name">'+display+'</span>' +
+      (meta ? '<span class="search-result-meta">'+meta+'</span>' : '') +
     '</div>';
   }).join('');
 
@@ -500,8 +502,11 @@ function handleFile(file){
 // ── buildEmbeddedHtml / save / safari ────────────────────
 function buildEmbeddedHtml(){
   var html=document.documentElement.outerHTML;
-  html=html.replace(/<script id="embedded-data"[^>]*><\/script>/,'<script id="embedded-data" type="application/json">'+JSON.stringify(window._dashData||null)+'<\/script>');
-  html=html.replace(/<script id="embedded-data-p2"[^>]*><\/script>/,'<script id="embedded-data-p2" type="application/json">'+JSON.stringify(window._p2Data||null)+'<\/script>');
+  var open1='<scr'+'ipt id="embedded-data" type="application/json">';
+  var open2='<scr'+'ipt id="embedded-data-p2" type="application/json">';
+  var close='<'+'/script>';
+  html=html.replace(/<script id="embedded-data"[^>]*><\/script>/,open1+JSON.stringify(window._dashData||null)+close);
+  html=html.replace(/<script id="embedded-data-p2"[^>]*><\/script>/,open2+JSON.stringify(window._p2Data||null)+close);
   return html;
 }
 function saveHtml(){var h=buildEmbeddedHtml(),b=new Blob([h],{type:'text/html;charset=utf-8;'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download='trade_dashboard.html';a.click();URL.revokeObjectURL(u);}
